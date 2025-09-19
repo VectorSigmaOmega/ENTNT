@@ -30,17 +30,35 @@ export interface Assessment {
   }[];
 }
 
+export interface TimelineEvent {
+  id: string;             // unique event id
+  candidateId: string;
+  stage: string;
+  date: string;           // ISO timestamp
+}
+
+export interface Note {
+  id: string;
+  candidateId: string;
+  content: string;   // may contain @mentions
+  timestamp: string;
+}
+
 export class TalentFlowDB extends Dexie {
   jobs!: Table<Job, string>;
   candidates!: Table<Candidate, string>;
   assessments!: Table<Assessment, string>;
+  timelines!: Table<TimelineEvent, string>;
+  notes!: Table<Note, string>;
 
   constructor() {
     super("TalentFlowDB");
-    this.version(1).stores({
+    this.version(3).stores({
       jobs: "id, title, slug, status, order",
       candidates: "id, name, email, stage, jobId",
       assessments: "jobId",
+      timelines: "id, candidateId",
+      notes: "id, candidateId",   // NEW
     });
   }
 }

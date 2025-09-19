@@ -63,25 +63,61 @@ export const handlers = [
   }),
 
   // PATCH /jobs/:id/reorder
-  http.patch("/jobs/:id/reorder", async ({ request }) => {
-    const error = await simulateNetwork(true);
-    if (error) return error;
+http.patch("/jobs/:id/reorder", async ({ request }) => {
+  // Simulate latency + possible error
+  const error = await simulateNetwork(true);
+  if (error) return error;
 
-    const body = await request.json();
-    if (!body || typeof body !== "object" || typeof body.fromOrder !== "number" || typeof body.toOrder !== "number") {
-      return HttpResponse.json({ error: "Invalid reorder data" }, { status: 400 });
-    }
-    const { fromOrder, toOrder } = body as { fromOrder: number; toOrder: number };
+  const { fromOrder, toOrder } = await request.json() as { fromOrder: number; toOrder: number };
 
+  // Keep snapshot in case of rollback
+  const snapshot = await db.jobs.toArray();
+
+  try {
     const jobs = await db.jobs.toArray();
+
+    // Move job
     const movingJob = jobs.find((j) => j.order === fromOrder);
-    if (movingJob) {
-      movingJob.order = toOrder;
-      await db.jobs.put(movingJob);
+    if (!movingJob) {
+      return HttpResponse.json({ error: "Job not found" }, { status: 404 });
+    }
+
+    // Shift others
+    jobs.forEach((job) => {
+      if (fromOrder < toOrder) {
+        // moving down
+        if (job.order > fromOrder && job.order <= toOrder) {
+          job.order -= 1;
+        }
+      } else {
+        // moving up
+        if (job.order < fromOrder && job.order >= toOrder) {
+          job.order += 1;
+        }
+      }
+    });
+
+    // Update moved job
+    movingJob.order = toOrder;
+
+    // Persist changes
+    await db.jobs.bulkPut(jobs);
+
+    // Occasionally simulate server failure → rollback
+    if (Math.random() < 0.1) {
+      await db.jobs.clear();
+      await db.jobs.bulkAdd(snapshot);
+      return HttpResponse.json({ error: "Simulated server rollback" }, { status: 500 });
     }
 
     return HttpResponse.json({ success: true });
-  }),
+  } catch (err) {
+    // Rollback if unexpected error
+    await db.jobs.clear();
+    await db.jobs.bulkAdd(snapshot);
+    return HttpResponse.json({ error: "Rollback due to error" }, { status: 500 });
+  }
+}),
 
   // ---------------------- CANDIDATES ----------------------
 
@@ -126,30 +162,48 @@ export const handlers = [
 
   // PATCH /candidates/:id (stage transitions)
   http.patch("/candidates/:id", async ({ params, request }) => {
-    const error = await simulateNetwork(true);
-    if (error) return error;
+  const error = await simulateNetwork(true);
+  if (error) return error;
 
-    const { id } = params;
-    const body = await request.json();
-    if (!body || typeof body !== "object") {
-      return HttpResponse.json({ error: "Invalid candidate update data" }, { status: 400 });
-    }
-    await db.candidates.update(id as string, body as Partial<Candidate>);
-    return HttpResponse.json({ id, ...(body as object) });
-  }),
+  const { id } = params;
+  const body = await request.json();
+
+  if (!body || typeof body !== "object") {
+    return HttpResponse.json({ error: "Invalid candidate update data" }, { status: 400 });
+  }
+
+  await db.candidates.update(id as string, body as Partial<Candidate>);
+
+  // If stage changed → add timeline event
+  if (typeof body.stage === "string") {
+    await db.timelines.add({
+      id: crypto.randomUUID(),
+      candidateId: id as string,
+      stage: body.stage,
+      date: new Date().toISOString(),
+    });
+  }
+
+  return HttpResponse.json({ id, ...(body as object) });
+}),
+
 
   // GET /candidates/:id/timeline
   http.get("/candidates/:id/timeline", async ({ params }) => {
-    await simulateNetwork();
-    // For demo: return a fake timeline
-    return HttpResponse.json({
-      candidateId: params.id,
-      timeline: [
-        { stage: "applied", date: "2023-01-01" },
-        { stage: "screen", date: "2023-01-05" },
-      ],
-    });
-  }),
+  await simulateNetwork();
+  const { id } = params;
+
+  const events = await db.timelines
+    .where("candidateId")
+    .equals(id as string)
+    .toArray();
+
+  // sort by date
+  events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  return HttpResponse.json({ candidateId: id, timeline: events });
+}),
+
 
   // ---------------------- ASSESSMENTS ----------------------
 
@@ -191,4 +245,37 @@ export const handlers = [
 
     return HttpResponse.json({ success: true });
   }),
+
+// ---------------------- MENTIONS ----------------------
+
+// GET /candidates/:id/notes
+http.get("/candidates/:id/notes", async ({ params }) => {
+  await simulateNetwork();
+  const notes = await db.notes.where("candidateId").equals(params.id as string).toArray();
+  return HttpResponse.json(notes);
+}),
+
+// POST /candidates/:id/notes
+http.post("/candidates/:id/notes", async ({ params, request }) => {
+  const error = await simulateNetwork(true);
+  if (error) return error;
+
+  const body = await request.json();
+  if (!body || typeof body !== "object" || typeof body.content !== "string") {
+    return HttpResponse.json({ error: "Invalid note data" }, { status: 400 });
+  }
+  const note = {
+    id: crypto.randomUUID(),
+    candidateId: params.id as string,
+    content: body.content,
+    timestamp: new Date().toISOString(),
+  };
+  await db.notes.add(note);
+  return HttpResponse.json(note, { status: 201 });
+}),
+
+
 ];
+
+
+

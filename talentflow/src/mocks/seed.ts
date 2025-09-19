@@ -76,5 +76,27 @@ export async function seedDatabase() {
 
   await db.assessments.bulkAdd(assessments);
 
+  // Add initial timeline entries for all candidates
+const timelineEvents = candidates.map((c) => ({
+  id: faker.string.uuid(),
+  candidateId: c.id,
+  stage: c.stage,
+  date: new Date().toISOString(),
+}));
+
+await db.timelines.bulkAdd(timelineEvents);
+
+// Seed notes for first 5 candidates
+const notes = candidates.slice(0, 5).map((c) => ({
+  id: faker.string.uuid(),
+  candidateId: c.id,
+  content: `Initial note for @${faker.person.firstName()}`,
+  timestamp: new Date().toISOString(),
+}));
+
+await db.notes.bulkAdd(notes);
+
+
+
   console.log("✅ Database seeded successfully!");
 }
