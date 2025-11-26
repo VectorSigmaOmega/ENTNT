@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Plus, Search, GripVertical } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useJobs } from "@/hooks/useJobs";
 import { Button, Input, Badge, Card } from "@/components/ui/Elements";
 import { JobForm } from "./JobForm";
@@ -61,9 +62,16 @@ function SortableJobRow({ job, onEdit }: { job: Job; onEdit: (job: Job) => void 
         </div>
       </div>
 
-      <Button size="sm" variant="outline" onClick={() => onEdit(job)}>
-        Edit
-      </Button>
+      <div className="flex gap-2">
+        <Link to={`/assessments/${job.id}`}>
+          <Button size="sm" variant="outline">
+            Assessment
+          </Button>
+        </Link>
+        <Button size="sm" variant="outline" onClick={() => onEdit(job)}>
+          Edit
+        </Button>
+      </div>
     </div>
   );
 }

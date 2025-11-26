@@ -147,6 +147,17 @@ http.patch("/jobs/:id/reorder", async ({ request }) => {
     return HttpResponse.json({ data: paginated, total: candidates.length });
   }),
 
+  // GET /candidates/:id
+  http.get("/candidates/:id", async ({ params }) => {
+    await simulateNetwork();
+    const { id } = params;
+    const candidate = await db.candidates.get(id as string);
+    if (!candidate) {
+      return HttpResponse.json({ error: "Candidate not found" }, { status: 404 });
+    }
+    return HttpResponse.json(candidate);
+  }),
+
   // POST /candidates
   http.post("/candidates", async ({ request }) => {
     const error = await simulateNetwork(true);

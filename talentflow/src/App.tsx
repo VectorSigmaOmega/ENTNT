@@ -4,9 +4,12 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { queryClient } from "@/lib/react-query";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
-import JobsList from "@/pages/jobs/JobsList"; // Import the new page
+import JobsList from "@/pages/jobs/JobsList";
+import CandidatesList from "@/pages/candidates/CandidatesList";
+import CandidateProfile from "@/pages/candidates/CandidateProfile";
+import AssessmentBuilder from "@/pages/assessments/AssessmentBuilder";
 
-const Candidates = () => <div className="text-xl font-semibold text-gray-400">Candidates Module (Coming Soon)</div>;
+
 const Assessments = () => <div className="text-xl font-semibold text-gray-400">Assessments Module (Coming Soon)</div>;
 
 function App() {
@@ -17,7 +20,9 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="jobs" element={<JobsList />} /> {/* Updated Route */}
-            <Route path="candidates" element={<Candidates />} />
+            <Route path="candidates" element={<CandidatesList />} />
+            <Route path="candidates/:id" element={<CandidateProfile />} />
+            <Route path="assessments/:jobId" element={<AssessmentBuilder />} />
             <Route path="assessments" element={<Assessments />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
